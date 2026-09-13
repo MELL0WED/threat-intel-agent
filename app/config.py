@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     redis_host: str = "localhost"
     redis_port: int = 6379
     openai_api_key: str = ""
-    nvd_api_key: str = "B6014940-311B-4E14-8D27-5C9969F78D2D"
+    groq_api_key: str = ""
+    nvd_api_key: str = ""
 
     class Config:
         env_file = ".env"

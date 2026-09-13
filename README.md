@@ -136,8 +136,17 @@ Then POST to `http://localhost:8000/query`:
 {"question": "What vulnerability let attackers run code remotely through a Java logging library?"}
 ```
 
+### Local quantized serving benchmark (Llama-3-8B-Instruct via LM Studio, RTX 3060 6GB)
+
+| Quantization | Avg latency (3 prompts) |
+|---|---|
+| Q4_K_M (4-bit) | 12.93s |
+| Q8_0 (8-bit) | 37.90s |
+
+Q4_K_M is ~2.9x faster. VRAM measurement via `nvidia-smi` was inconclusive as designed
+(captured steady-state usage after manual model-switching, not an isolated delta) —
+noted as a known limitation of this benchmark's methodology.
+
 ## What's not built
 
-- Self-hosted quantized serving benchmark (vLLM/Ollama vs. LM Studio, FP16 vs. 4-bit) —
-  scoped but not completed; would benchmark latency/throughput/VRAM on the RTX 3060.
 - Live public deployment — blocked by free-tier memory limits (see "Deployment attempt").

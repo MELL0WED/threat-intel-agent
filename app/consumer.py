@@ -5,7 +5,7 @@ from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
 
 from app.config import settings
-from app.ingest import fetch_cve_description, COLLECTION_NAME
+from app.ingest import fetch_cve_description, cve_to_point_id, COLLECTION_NAME
 
 consumer = KafkaConsumer(
     "cve-advisories",
@@ -26,8 +26,8 @@ for message in consumer:
 
     client.upsert(
         collection_name=COLLECTION_NAME,
-        points=[{"id": hash(cve_id) % (10**8), "vector": vector,
+        points=[{"id": cve_to_point_id(cve_id), "vector": vector,
                  "payload": {"cve_id": cve_id, "description": description}}],
     )
     print(f"Ingested {cve_id}")
-    time.sleep(6)  # NVD rate limit, same as before
+    time.sleep(6)

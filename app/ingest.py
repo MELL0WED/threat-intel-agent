@@ -1,3 +1,4 @@
+import hashlib
 import time
 import requests
 from qdrant_client import QdrantClient
@@ -9,6 +10,10 @@ from app.data.known_cves import KNOWN_CVES
 
 NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 COLLECTION_NAME = "cve_advisories"
+
+
+def cve_to_point_id(cve_id: str) -> int:
+    return int(hashlib.md5(cve_id.encode()).hexdigest()[:8], 16)
 
 
 def fetch_cve_description(cve_id: str) -> str:
@@ -35,7 +40,7 @@ def main():
     )
 
     points = []
-    for i, entry in enumerate(KNOWN_CVES):
+    for entry in KNOWN_CVES:
         cve_id = entry["cve_id"]
         print(f"Fetching {cve_id}...")
         description = fetch_cve_description(cve_id)
@@ -43,12 +48,12 @@ def main():
 
         points.append(
             PointStruct(
-                id=i,
+                id=cve_to_point_id(cve_id),
                 vector=vector,
                 payload={"cve_id": cve_id, "description": description},
             )
         )
-        time.sleep(6)  # stay under NVD's public rate limit (5 requests / 30s)
+        time.sleep(6)
 
     client.upsert(collection_name=COLLECTION_NAME, points=points)
     print(f"Ingested {len(points)} CVEs into Qdrant.")

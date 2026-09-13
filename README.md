@@ -9,20 +9,23 @@ ingestion, model training/distillation, and agent orchestration — with every t
 validated against a measured baseline, not just demoed.
 
 ## Architecture
-Kafka (or batch script) → CVE ingestion → Delta-style Qdrant vector store
+Kafka (or batch script) → CVE ingestion → Qdrant vector store
 ↓
-Question → [Redis cache check] → Retrieve (Qdrant) → Classify (DistilBERT) → Generate (local LLM)
+Question → [Redis cache check] → Retrieve (Qdrant) → Classify (DistilBERT) → Generate (LLM)
 ↓
 Cache result in Redis
+
+
 - **Ingestion**: two parallel, interchangeable paths — a batch script (`app/ingest.py`) and
-  a Kafka producer/consumer pair (`app/producer.py`, `app/consumer.py`) — both writing to the
-  same Qdrant collection via a shared, deterministic point-ID scheme.
+  a Kafka producer/consumer pair (`app/producer.py`, `app/consumer.py`) — both writing to
+  the same Qdrant collection via a shared, deterministic point-ID scheme.
 - **Retrieval**: `sentence-transformers` embeddings + Qdrant cosine similarity search,
   with an optional cross-encoder reranking stage.
 - **Classification**: a DistilBERT model fine-tuned on real NVD severity labels to predict
-  MEDIUM/HIGH/CRITICAL.
-- **Agent**: a LangGraph state machine (`app/agent.py`) with true conditional routing —
-  a semantic cache check gates the rest of the pipeline.
+  MEDIUM/HIGH/CRITICAL. Hosted on Hugging Face Hub:
+  [FalconGlide/cve-severity-classifier](https://huggingface.co/FalconGlide/cve-severity-classifier).
+- **Agent**: a LangGraph state machine (`app/agent.py`) with true conditional routing — a
+  semantic cache check gates the rest of the pipeline.
 - **Serving**: FastAPI (`app/main.py`), exposing `/query` and `/health`.
 
 ## Results
@@ -36,8 +39,7 @@ Cache result in Redis
 
 Reranking helped on cases where the correct document ranked 2nd–3rd (promoted to 1st),
 but hurt on a cluster of near-duplicate Office/document-exploit CVEs — a net positive,
-not a uniform win. Full per-question results in `app/eval_baseline.py` /
-`app/eval_reranked.py` output.
+not a uniform win.
 
 ### Severity classifier (979 real CVEs pulled via NVD bulk API, 80/20 stratified split)
 
@@ -89,11 +91,35 @@ shouldn't be trusted without first evaluating its calibration on the specific ta
   instead of `.env`, caught by GitHub's push protection before merging to the remote.
   Both keys were revoked and rotated; the commit was amended before pushing.
 
+## Deployment attempt
+
+Attempted live deployment on Render's free tier (512MB RAM), backed by Qdrant Cloud
+(retrieval) and Groq (generation), with local dependencies (LM Studio, Docker Compose
+Kafka/Redis) swapped for cloud equivalents.
+
+Docker build succeeded after resolving several environment-mismatch issues along the
+way (a Windows-only `pywin32` dependency picked up by `pip freeze`, a CUDA-specific
+`torch` build with no CPU equivalent on the deploy target, and Render defaulting to a
+Python version with no prebuilt wheels for several pinned packages — fixed by pinning
+Python 3.10 explicitly via Docker rather than relying on buildpack auto-detection).
+
+The running service then hit a hard memory ceiling: the agent's two loaded models
+(sentence-transformer embedder + fine-tuned DistilBERT classifier) require ~1GB RAM at
+startup, measured directly — roughly double Render's free-tier 512MB limit. This is a
+genuine resource constraint, not a bug: multi-model inference services are memory-heavy
+by nature, and free hosting tiers are generally sized for lightweight web apps rather
+than services holding transformer models in memory.
+
+The project runs correctly end-to-end locally (see "Running locally" below) and via
+Docker on any host with ≥1GB available RAM. Deploying on a paid tier, or reducing
+memory footprint via model quantization/lazy-loading, would resolve this — scoped as a
+known next step rather than completed here.
+
 ## Stack
 
-Python, FastAPI, LangGraph, Qdrant, Redis, Kafka, Docker Compose, sentence-transformers,
-DistilBERT (HuggingFace Transformers, PyTorch), scikit-learn, LM Studio (local Llama-3-8B
-inference), Groq API (teacher scoring).
+Python, FastAPI, LangGraph, Qdrant (local + Cloud), Redis, Kafka, Docker Compose,
+sentence-transformers, DistilBERT (HuggingFace Transformers, PyTorch), scikit-learn,
+LM Studio (local Llama-3-8B inference), Groq API (teacher scoring + deployed generation).
 
 ## Running locally
 
@@ -114,4 +140,4 @@ Then POST to `http://localhost:8000/query`:
 
 - Self-hosted quantized serving benchmark (vLLM/Ollama vs. LM Studio, FP16 vs. 4-bit) —
   scoped but not completed; would benchmark latency/throughput/VRAM on the RTX 3060.
-- Live deployment — currently local-only.
+- Live public deployment — blocked by free-tier memory limits (see "Deployment attempt").

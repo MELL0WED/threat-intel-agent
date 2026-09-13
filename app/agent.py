@@ -16,8 +16,7 @@ from app.ingest import COLLECTION_NAME
 
 LABELS = ["MEDIUM", "HIGH", "CRITICAL"]
 CLASSIFIER_PATH = "app/models/severity_classifier_final"
-LM_STUDIO_URL = "http://localhost:1234/v1/chat/completions"
-
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 class AgentState(TypedDict):
     question: str
@@ -73,19 +72,19 @@ def generate_node(state: AgentState) -> AgentState:
         f"Answer the question using this information, in 2-3 sentences."
     )
     response = requests.post(
-        LM_STUDIO_URL,
+        GROQ_URL,
+        headers={"Authorization": f"Bearer {settings.groq_api_key}"},
         json={
-            "model": "meta-llama-3-8b-instruct",
+            "model": "openai/gpt-oss-120b",
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
         },
-        timeout=60,
+        timeout=30,
     )
     response.raise_for_status()
     answer = response.json()["choices"][0]["message"]["content"].strip()
     state["answer"] = answer + escalation_note
     return state
-
 
 def route_after_cache(state: AgentState) -> str:
     return END if state["_cache_hit"] else "retrieve"

@@ -33,8 +33,12 @@ def fetch_cve_description(cve_id: str) -> str:
 
 def main():
     model = SentenceTransformer("all-MiniLM-L6-v2")
-    client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
-
+    if settings.qdrant_cloud_url:
+        client = QdrantClient(url=settings.qdrant_cloud_url, api_key=settings.qdrant_cloud_api_key)
+        print("Using Qdrant Cloud")
+    else:
+        client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
+        print("Using local Qdrant")
     client.recreate_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=384, distance=Distance.COSINE),

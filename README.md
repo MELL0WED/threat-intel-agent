@@ -147,6 +147,11 @@ Q4_K_M is ~2.9x faster. VRAM measurement via `nvidia-smi` was inconclusive as de
 (captured steady-state usage after manual model-switching, not an isolated delta) —
 noted as a known limitation of this benchmark's methodology.
 
+## Testing
+10 tests across integration (Testcontainers-backed Qdrant, including a regression test for the
+point-ID duplication bug), unit (agent node logic with mocked models), and correctness tests for
+the evaluation metrics themselves — run via `pytest tests/ -v`.
+
 ## What's not built
 
 - Live public deployment — blocked by free-tier memory limits (see "Deployment attempt").

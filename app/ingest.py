@@ -17,7 +17,8 @@ def cve_to_point_id(cve_id: str) -> int:
 
 
 def fetch_cve_description(cve_id: str) -> str:
-    resp = requests.get(NVD_URL, params={"cveId": cve_id}, timeout=15)
+    headers = {"apiKey": settings.nvd_api_key} if settings.nvd_api_key else {}
+    resp = requests.get(NVD_URL, params={"cveId": cve_id}, headers=headers, timeout=15)    
     resp.raise_for_status()
     data = resp.json()
     vulns = data.get("vulnerabilities", [])
@@ -53,7 +54,7 @@ def main():
                 payload={"cve_id": cve_id, "description": description},
             )
         )
-        time.sleep(6)
+        time.sleep(0.6)
 
     client.upsert(collection_name=COLLECTION_NAME, points=points)
     print(f"Ingested {len(points)} CVEs into Qdrant.")
